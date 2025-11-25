@@ -1,0 +1,35 @@
+version: '3.8'
+
+services: 
+  frontend_app:
+    image: zkspringbootfrontend:local
+    container_name: frontend_zkSpringboot
+    environment:
+      - BACKEND_API_URL=http://backend_app:8081/
+      - SPRING_PROFILES_ACTIVE=dev
+    volumes:
+      - frontend_logs:/app/logs
+    ports:
+      - "8082:8080"
+    networks:
+      - shared_network
+    restart: unless-stopped
+
+  # zk_frontend:
+  #   image: tomcat:9.0
+  #   container_name: zk_frontend
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./zk-frontend/zk-app.war:/usr/local/tomcat/webapps/ROOT.war
+  #   ports:
+  #     - "8082:8080"
+  #   networks:
+  #     - app-network
+  #     - shared_network
+
+volumes:
+  frontend_logs:
+
+networks:
+  shared_network:
+    external: true

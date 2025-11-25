@@ -1,0 +1,207 @@
+pipeline {
+    agent any
+
+    environment {
+        // Nombre de la imagen Docker final
+        IMAGE_NAME = 'djesuscp/zkspringbootrest_front'
+        // Versión actual.
+        CURRENT_VERSION = "1."
+        // Versión automática.
+        IMAGE_TAG = "${CURRENT_VERSION}${BUILD_NUMBER}"
+        // Nombre del contenedor.
+        CONTAINER_NAME = "frontend_zkSpringbootREST"
+
+        // Credenciales Docker en Jenkins
+        DOCKER_CREDENTIALS = 'dockerJenkins_token_forFront'
+        DOCKERHUB_USERNAME = 'djesuscp'
+        DOCKERHUB_PASSWORD = credentials('dockerJenkins_token_forFront')
+        SHARED_NETWORK = 'shared_network'
+        SONARQUBE_SERVER = 'SonarQubeServer1' // Nombre configurado en Jenkins → Configure System
+        // SONAR_PROJECT_KEY = 'zkspringbootrest_back' // Ajusta el nombre del proyecto en SonarQube
+        SONAR_JACOCO_REPORTPATH = 'target/site/jacoco/jacoco.xml'
+        SONAR_OPENCLOVER_REPORTPATH = 'target/site/clover/clover.xml'
+        SONAR_HOST_URL = 'http://sonarqube:9000'
+        SONAR_TOKEN = credentials('sonarQube_token') // ID del token en Jenkins Credentials
+
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        // Primera fase de test y compilación.
+        stage('Test and compile app') {
+            // Se crea un contenedor efímero o lo que sería equivalente a un "nodo esclavo".
+            agent {
+                docker {
+                    image 'maven:3.9.9-eclipse-temurin-21'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            steps {
+                // Se indica el directorio de trabajo.
+                dir('frontend') {
+                    sh 'mvn -B clean verify'
+                    // Se guardan los artefactos necesarios en el contenedor maestro de Jenkins para utilizarlos en siguientes etapas.
+                    stash includes: 'target/frontend_app-1.0.0.jar', name: 'appJar'
+                    stash includes:'target/site/jacoco/jacoco.xml', name: 'jacocoReport'
+                    // stash includes:'target/site/clover/clover.xml', name: 'cloverReport'
+                }
+            }
+            post {
+                always {
+                    // Se guardan los informes de JUnit.
+                    junit 'frontend/target/surefire-reports/*.xml'
+                    // JaCoCo HTML con HTML Publisher Plugin (no usa el plugin obsoleto de JaCoCo).
+                    publishHTML([
+                        reportDir: 'frontend/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo HTML Report',
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true,
+                        allowMissing: false
+                    ])
+                    // OpenClover HTML con HTML Publisher Plugin.
+                    // publishHTML([
+                    //     reportDir: 'frontend/target/site/clover',
+                    //     reportFiles: 'index.html',
+                    //     reportName: 'OpenClover HTML Report',
+                    //     keepAll: true,
+                    //     alwaysLinkToLastBuild: true,
+                    //     allowMissing: false
+                    // ])
+                    // JaCoCo XML con JaCoCo Plugin (obsoleto).
+                    jacoco execPattern: '**/target/jacoco.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java',
+                        inclusionPattern: '**/*.class',
+                        exclusionPattern: ''
+                }
+            }
+        }
+
+        // Fase de análisis con SonarQube.
+        stage('SonarQube analysis') {
+            // Contenedor efímero para realizar el trabajo de esta etapa.
+            agent {
+                docker {
+                    image 'maven:3.9.9-eclipse-temurin-21'
+                    args '-v $HOME/.m2:/root/.m2'
+                    args "--network ${SHARED_NETWORK}"
+                }
+            }
+            steps {
+                // Se recupera el informe de JaCoCo para volcarlo en Sonar.
+                unstash 'jacocoReport'
+                //unstash 'cloverReport'
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    dir('frontend') {
+                        sh """
+                            mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=${SONAR_JACOCO_REPORTPATH}
+                        """
+                    } // mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN} -Dsonar.clover.reportPath=${SONAR_OPENCLOVER_REPORTPATH}
+                }
+            }
+        }
+        
+        // Fase de calidad con SonarQube.
+        stage('Sonar Quality Gate') {
+            steps {
+                timeout(time: 3, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // Fase de construcción de la nueva imagen de la app.
+        stage('Build Docker Image') {
+            // Contenedor efímero para realizar el trabajo de esta etapa.
+            agent {
+                docker {
+                    // Docker-in-Docker para construir imágenes
+                    image 'docker:24.0.2-dind'
+                    args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                // Se recupera el artefacto compilado en la primera fase.
+                unstash 'appJar'
+                // Se construye la imagen usando el Dockerfile.
+                sh """docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f docker/Dockerfile ."""
+            }
+        }
+
+
+        // Fase de subida de lal imagen generada a Docker Hub.
+        stage('Upload image to Docker Hub') {
+            // Contenedor efímero para realizar el trabajo de esta etapa.
+            agent {
+                docker {
+                    image 'docker:24.0.2-dind'
+                    args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                dir('docker') {
+                    script {
+                        docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
+                            sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Application') {
+            // agent {
+            //     docker {
+            //         image 'docker:24.0.2-dind'
+            //         args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+            //     }
+            // }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerJenkins_token_forFront',
+                    usernameVariable: 'DOCKERHUB_USERNAME',
+                    passwordVariable: 'DOCKERHUB_PASSWORD'
+                )]) {
+                    sh """
+                        # Login en Docker Hub
+                        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
+                        # Copiamos el docker-compose del repo al host (al workspace ya lo tenemos)
+                        cp docker/docker-compose.yml ./docker-compose.yml
+
+                        # Actualizamos la imagen dentro del docker-compose.yml
+                        sed -i "/backend_app:/,/image:/s#image: .*#image: ${IMAGE_NAME}:${IMAGE_TAG}#" docker-compose.yml
+
+                        # Detener y eliminar el contenedor viejo si existe
+                        if [ \$(docker ps -a -q -f name=${CONTAINER_NAME}) ]; then
+                            docker compose down
+                        fi
+
+                        # Desplegar la nueva versión
+                        docker compose pull
+                        docker compose up -d
+
+                        echo "✔ Nueva versión desplegada correctamente"
+                    """
+                }
+            }
+        }
+    }
+    // Fase final de post que informa sobre el resultado de la Pipeline y limpia el workspace.
+    post {
+        success {
+            echo '✅ Pipeline has finished successfully.'
+        }
+        failure {
+            echo '❌ Pipeline FAILED. Watch above for errors.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

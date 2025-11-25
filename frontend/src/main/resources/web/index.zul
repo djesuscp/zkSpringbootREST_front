@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <window xmlns="http://www.zkoss.org/2005/zul" title="ProjectExercise1App" border="normal" width="400px"
+            apply="com.example.frontend_app.controllers.ApiController">
+        <!--<label value="¡ZK está funcionando!" />-->
+        <vlayout spacing="10px" style="padding:10px">
+            <button id="fetchButton" label="Execute Data Fetch"/>
+            <textbox id="resultBox" rows="10" width="100%" multiline="true"/>
+        </vlayout>
+    </window>

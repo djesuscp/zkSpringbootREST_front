@@ -1,0 +1,6 @@
+<zk>
+    <window title="Zk Error Page" border="normal">
+        Congrats, ZK is working but it's still failing to load your index.
+        You are using ZK version <label value="${session.webApp.version}"/>
+    </window>
+</zk>
