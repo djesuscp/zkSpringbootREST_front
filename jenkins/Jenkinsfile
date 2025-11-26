@@ -177,7 +177,7 @@ pipeline {
                         cp docker/docker-compose.yml ./docker-compose.yml
 
                         # Actualizamos la imagen dentro del docker-compose.yml
-                        sed -i "/frontend_app:/,/image:/s#image: .*#image: ${IMAGE_NAME}:${IMAGE_TAG}#" docker-compose.yml
+                        sed -i "/frontendapp:/,/image:/s#image: .*#image: ${IMAGE_NAME}:${IMAGE_TAG}#" docker-compose.yml
 
                         # Detener y eliminar el contenedor viejo si existe
                         if [ \$(docker ps -a -q -f name=${CONTAINER_NAME}) ]; then
