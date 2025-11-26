@@ -29,7 +29,7 @@ public class ApiController extends SelectorComposer<Window> {
         String envUrl = System.getenv("BACKEND_API_URL");
         String finalUrl;
         if(envUrl == null || envUrl.isBlank()) {
-            finalUrl = "http://backend_app:8080";
+            finalUrl = "http://backend_app:8080/api/external-post";
         }
         else {
             finalUrl = envUrl;
@@ -50,7 +50,7 @@ public class ApiController extends SelectorComposer<Window> {
     public void fetchData() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(backendUrl + "/external-post"))
+                    .uri(URI.create(backendUrl))
                     .GET()
                     .build();
 
