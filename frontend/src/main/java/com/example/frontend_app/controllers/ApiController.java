@@ -29,7 +29,7 @@ public class ApiController extends SelectorComposer<Window> {
         String envUrl = System.getenv("BACKEND_API_URL");
         String finalUrl;
         if(envUrl == null || envUrl.isBlank()) {
-            finalUrl = "http://backend_app:8080/api/external-post";
+            finalUrl = "http://backendapp:8080/api/external-post";
         }
         else {
             finalUrl = envUrl;

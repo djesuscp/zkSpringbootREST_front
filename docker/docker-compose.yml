@@ -5,7 +5,7 @@ services:
     image: zkspringbootfrontend:local
     container_name: frontend_zkSpringboot
     environment:
-      - BACKEND_API_URL=http://backend_app:8080/api/external-post
+      - BACKEND_API_URL=http://backendapp:8080/api/external-post
       - SPRING_PROFILES_ACTIVE=dev
     volumes:
       - frontend_logs:/app/logs
