@@ -1,7 +1,7 @@
 version: '3.8'
 
 services: 
-  frontend_app:
+  frontendapp:
     image: zkspringbootfrontend:local
     container_name: frontend_zkSpringboot
     environment:
@@ -14,18 +14,6 @@ services:
     networks:
       - shared_network
     restart: unless-stopped
-
-  # zk_frontend:
-  #   image: tomcat:9.0
-  #   container_name: zk_frontend
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./zk-frontend/zk-app.war:/usr/local/tomcat/webapps/ROOT.war
-  #   ports:
-  #     - "8082:8080"
-  #   networks:
-  #     - app-network
-  #     - shared_network
 
 volumes:
   frontend_logs:

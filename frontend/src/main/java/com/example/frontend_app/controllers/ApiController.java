@@ -49,6 +49,7 @@ public class ApiController extends SelectorComposer<Window> {
     @Listen("onClick = #fetchButton")
     public void fetchData() {
         try {
+            System.out.println("----BACKEND_URI----: " + backendUrl);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(backendUrl))
                     .GET()
