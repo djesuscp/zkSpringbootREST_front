@@ -50,7 +50,7 @@ public class ApiController extends SelectorComposer<Window> {
     public void fetchData() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(backendUrl))
+                    .uri(URI.create(backendUrl + "/posts/1"))
                     .GET()
                     .build();
 
