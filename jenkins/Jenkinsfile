@@ -47,7 +47,6 @@ pipeline {
                     // Se guardan los artefactos necesarios en el contenedor maestro de Jenkins para utilizarlos en siguientes etapas.
                     stash includes: 'target/frontend_app-1.0.0.jar', name: 'appJar'
                     stash includes:'target/site/jacoco/jacoco.xml', name: 'jacocoReport'
-                    // stash includes:'target/site/clover/clover.xml', name: 'cloverReport'
                 }
             }
             post {
@@ -63,15 +62,6 @@ pipeline {
                         alwaysLinkToLastBuild: true,
                         allowMissing: false
                     ])
-                    // OpenClover HTML con HTML Publisher Plugin.
-                    // publishHTML([
-                    //     reportDir: 'frontend/target/site/clover',
-                    //     reportFiles: 'index.html',
-                    //     reportName: 'OpenClover HTML Report',
-                    //     keepAll: true,
-                    //     alwaysLinkToLastBuild: true,
-                    //     allowMissing: false
-                    // ])
                     // JaCoCo XML con JaCoCo Plugin (obsoleto).
                     jacoco execPattern: '**/target/jacoco.exec',
                         classPattern: '**/target/classes',
@@ -95,13 +85,12 @@ pipeline {
             steps {
                 // Se recupera el informe de JaCoCo para volcarlo en Sonar.
                 unstash 'jacocoReport'
-                //unstash 'cloverReport'
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
                     dir('frontend') {
                         sh """
                             mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN} -Dsonar.coverage.jacoco.xmlReportPaths=${SONAR_JACOCO_REPORTPATH}
                         """
-                    } // mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN} -Dsonar.clover.reportPath=${SONAR_OPENCLOVER_REPORTPATH}
+                    }
                 }
             }
         }
@@ -157,12 +146,6 @@ pipeline {
         }
         
         stage('Deploy Application') {
-            // agent {
-            //     docker {
-            //         image 'docker:24.0.2-dind'
-            //         args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
-            //     }
-            // }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerJenkins_token_forFront',
